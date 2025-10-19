@@ -1,0 +1,95 @@
+--Game where blood is falling from a blood bag and player clicks to catch them
+--before blood hits the bottom of screen
+--game ends when 3 blood drops hit the bottom
+--player wins if they successfully catch all the blood within 30 seconds
+--and has not missed more than 2 drops
+
+--------------------------------------------
+-- LOAD
+--------------------------------------------
+function love.load()
+  bloodDrop = love.graphics.newImage("blood.png")
+  backgroundImage = love.graphics.newImage("bg.png")
+  powerUp = love.graphics.newImage("powerup1.png")
+  imageVisible = false
+  spawnTimer = 0
+  nextSpawnTime = math.random(5,10)
+  spawnAreaWidth = 600
+  spawnAreaHeight = 400
+  hasSpawned = false  
+
+  -- Creates the random droplets above screen
+  math.randomseed(os.time())
+  math.random(); math.random(); math.random()
+  startx = {math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
+            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
+            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
+            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
+            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth())}
+  starty = {0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2)}
+  local randomNumber = math.random(1, 20)
+end
+
+--MOUSE PRESS
+--1 = left, 2 = right, 3 = middle wheel
+
+function love.mousepressed(x, y, button, istouch)
+  if button == 1 then
+    for i, v in ipairs(startx) do
+      --if the mouse x and y is within the boundary of a blood drop
+      if x >= startx[i] and x <= startx[i] + bloodDrop:getWidth() and y >= starty[i] and y <= starty[i] + bloodDrop:getHeight() then
+        math.randomseed(os.time())
+        math.random(); math.random(); math.random()
+        --reset its y value (go back to the top)
+        starty[i] = math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2) * -1
+      end
+    end
+  end
+end
+-------------------------------------------------
+--UPDATE
+-------------------------------------------------
+function love.update(dt)
+  if not hasSpawned then
+    spawnTimer = spawnTimer + dt
+
+    if spawnTimer >= nextSpawnTime then
+      imageVisible = true
+      hasSpawned = true                -- mark as spawned so there are no repeats
+    
+      spawnx = math.random(0, spawnAreaWidth - powerUp:getWidth())                      --spawn powerup image within parameters of 700x500 to advoid clipping
+      spawny = math.random(0, spawnAreaHeight - powerUp:getHeight())
+    
+      for i, v in ipairs(starty) do
+        if starty[i] + bloodDrop:getHeight() >= love.graphics.getHeight() then   --if blood drop hits the bottom of the screen, lua quits (we lose)
+          love.event.quit()
+        end
+        starty[i] = starty[i] + 100 * dt               --blood slides down y axis at a speed of 100 delta time
+      end  
+    end    
+  end
+end
+
+-------------------------------------------------
+--DRAW
+-------------------------------------------------
+function love.draw()
+  --Adds background image to game
+  love.graphics.draw(backgroundImage, 0, 0)
+   --draw each blood drop at their respective x and y
+  for i, v in ipairs(startx) do
+    love.graphics.draw(bloodDrop, startx[i], starty[i])
+
+  if imageVisible then
+    love.graphics.draw(powerUp, spawnAreaWidth, spawnAreaHeight)
+    end
+        ---TEST border
+        love.graphics.setColor(1, 0, 0)
+        love.graphics.rectangle("line", 100, 100, 600, 400)
+        love.graphics.setColor(1, 1, 1)    --red outline for testing
+  end
+end
