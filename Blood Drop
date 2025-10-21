@@ -1,51 +1,96 @@
 --Game where blood is falling from a blood bag and player clicks to catch them
 --before blood hits the bottom of screen
---game ends when 3 blood drops hit the bottom
---player wins if they successfully catch all the blood within 30 seconds
---and has not missed more than 2 drops
+--game ends when 1 blood drops hit the bottom
+--1 powerup will appear to help the player
+--it will cause the blood drops to slow down
 
 --------------------------------------------
 -- LOAD
 --------------------------------------------
 function love.load()
+  love.graphics.setDefaultFilter("nearest", "nearest")
   bloodDrop = love.graphics.newImage("blood.png")
-  backgroundImage = love.graphics.newImage("bg.png")
   powerUp = love.graphics.newImage("powerup1.png")
   imageVisible = false
+  
+  --setting spawn timer and random location spawn area
   spawnTimer = 0
-  nextSpawnTime = math.random(5,10)
-  spawnAreaWidth = 600
-  spawnAreaHeight = 400
-  hasSpawned = false  
+  nextSpawnTime = math.random(0,10)                      
+  spawnAreaWidth, spawnAreaHeight = 600, 400
+  hasSpawned = false
+  spawnx, spawny = 0, 0
+  
+  -- Creating Quads for background image animation from sprite sheet
+  BackgroundImage = love.graphics.newImage("bgsprite.png")
+  local ImageW, ImageH = BackgroundImage:getWidth(), BackgroundImage:getHeight()
+  
+  frames = {}
 
+  local frameW, frameH = 800, 600
+
+  for i=0,1 do
+    table.insert(frames, love.graphics.newQuad(i * frameW, 0, frameW, frameH, ImageW, ImageH))
+  end
+
+  currentFrame = 1
+  frameTimer = 0
+  frameDuration = 0.25
+
+  --speed of droplets and power up duration
+  dropSpeed = 100  --normal speed
+  slowFactor = 0.4
+  powerUpDuration = 5
+  powerUpActive = false     --powerup off until clicked by player
+  powerUpTimer = 0
+  
   -- Creates the random droplets above screen
-  math.randomseed(os.time())
-  math.random(); math.random(); math.random()
-  startx = {math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
-            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
-            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
-            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
-            math.random(0, love.graphics.getWidth() - bloodDrop:getWidth())}
-  starty = {0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
-            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
-            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
-            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
-            0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2)}
-  local randomNumber = math.random(1, 20)
+  
+  math.randomseed(os.time()); math.random(); math.random(); math.random()
+  
+  startx = {
+    math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
+    math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
+    math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()),  
+    math.random(0, love.graphics.getWidth() - bloodDrop:getWidth()), 
+    math.random(0, love.graphics.getWidth() - bloodDrop:getWidth())
+  }
+  starty = {
+    0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+    0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+    0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+    0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2),
+    0 - math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2)
+  }
+  
 end
-
+-------------------------------------------------
 --MOUSE PRESS
 --1 = left, 2 = right, 3 = middle wheel
+-------------------------------------------------
 
-function love.mousepressed(x, y, button, istouch)
+function love.mousepressed(x, y, button)
+  
   if button == 1 then
+    
+    --clicking powerup image activates slow duration for 5 seconds
+    if imageVisible and not powerUpActive then
+      if x >= spawnx and x <= spawnx + powerUp:getWidth()
+      and y >= spawny and y <= spawny + powerUp:getHeight() then
+        imageVisible = false     -- hide after clicking
+        powerUpActive = true
+        powerUpTimer = powerUpDuration
+        return     -- stop her so we don't click droplets as well
+      end
+    end
+  
+  
     for i, v in ipairs(startx) do
       --if the mouse x and y is within the boundary of a blood drop
-      if x >= startx[i] and x <= startx[i] + bloodDrop:getWidth() and y >= starty[i] and y <= starty[i] + bloodDrop:getHeight() then
-        math.randomseed(os.time())
-        math.random(); math.random(); math.random()
+      if x >= startx[i] and x <= startx[i] + bloodDrop:getWidth()
+      and y >= starty[i] and y <= starty[i] + bloodDrop:getHeight() then
+        
         --reset its y value (go back to the top)
-        starty[i] = math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2) * -1
+        starty[i] = -math.random(bloodDrop:getHeight(), bloodDrop:getHeight() * 2)
       end
     end
   end
@@ -54,22 +99,42 @@ end
 --UPDATE
 -------------------------------------------------
 function love.update(dt)
+
+  --background animation logic to repeat quads 0 and 1
+  frameTimer = frameTimer + dt
+  if frameTimer >= frameDuration then
+    frameTimer = frameTimer - frameDuration
+    currentFrame = currentFrame % #frames +1   -- 0 and 1 repeat
+  end
+
+  -- power up timer for 5 seconds then set to false to de-activate
+  if powerUpActive then
+    powerUpTimer = powerUpTimer - dt
+    if powerUpTimer <= 0 then
+      powerUpActive  = false
+      powerUpTimer = 0
+    end
+  end
+
+  -- movement speed change
+  local currentSpeed = powerUpActive and (dropSpeed * slowFactor) or dropSpeed
+  
+  --Spawn powerup in a random position (once)
   if not hasSpawned then
     spawnTimer = spawnTimer + dt
-
     if spawnTimer >= nextSpawnTime then
       imageVisible = true
-      hasSpawned = true                -- mark as spawned so there are no repeats
-    
-      spawnx = math.random(0, spawnAreaWidth - powerUp:getWidth())                      --spawn powerup image within parameters of 700x500 to advoid clipping
+      hasSpawned = true                -- mark spawned? as true so there are no repeats
+      spawnx = math.random(0, spawnAreaWidth - powerUp:getWidth())
       spawny = math.random(0, spawnAreaHeight - powerUp:getHeight())
-    
-      for i, v in ipairs(starty) do
-        if starty[i] + bloodDrop:getHeight() >= love.graphics.getHeight() then   --if blood drop hits the bottom of the screen, lua quits (we lose)
-          love.event.quit()
-        end
-        starty[i] = starty[i] + 100 * dt               --blood slides down y axis at a speed of 100 delta time
-      end  
+    end
+  end
+
+  -- Move drops every frame
+  for i, _ in ipairs(starty) do
+    starty[i] = starty[i] + currentSpeed * dt
+    if starty[i] + bloodDrop:getHeight() >= love.graphics.getHeight() then   
+      love.event.quit()  -- quits for now/ lose life add later
     end    
   end
 end
@@ -78,18 +143,20 @@ end
 --DRAW
 -------------------------------------------------
 function love.draw()
-  --Adds background image to game
-  love.graphics.draw(backgroundImage, 0, 0)
+  --Adds background image sprite to game
+  love.graphics.draw(BackgroundImage, frames[currentFrame], 0, 0)
+
    --draw each blood drop at their respective x and y
-  for i, v in ipairs(startx) do
+  for i, _ in ipairs(startx) do
     love.graphics.draw(bloodDrop, startx[i], starty[i])
+  end
 
   if imageVisible then
-    love.graphics.draw(powerUp, spawnAreaWidth, spawnAreaHeight)
-    end
-        ---TEST border
-        love.graphics.setColor(1, 0, 0)
-        love.graphics.rectangle("line", 100, 100, 600, 400)
-        love.graphics.setColor(1, 1, 1)    --red outline for testing
+    love.graphics.draw(powerUp, spawnx, spawny)
+  end
+
+  -- UI slow
+  if powerUpActive then
+    love.graphics.print("SLOW!", 10, 10)
   end
 end
